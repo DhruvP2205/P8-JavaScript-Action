@@ -1,0 +1,14 @@
+{
+  "name": "semver-check-action",
+  "version": "1.0.0",
+  "description": "GitHub Action that validates a version string and derives Docker tags from it",
+  "main": "src/semver.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^3.0.1",
+    "@vercel/ncc": "^0.45.0"
+  }
+}

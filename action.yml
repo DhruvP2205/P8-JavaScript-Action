@@ -1,0 +1,32 @@
+name: JavaScript Action
+description: JavaScript Custom Action
+branding:
+  icon: 'activity'
+  color: 'green'
+
+inputs:
+  docker-tag:
+    description: "Docker Tag Version (Ex., 1.2.3 , v1.2.3 , 1.0.0-rc.1)"
+    required: true
+
+  semver-options:
+    description: "Options: { allowPrefixV } (default true)"
+    default: "true"
+
+outputs:
+  version:
+    description: "Normalized version string without leading v and without build metadata"
+  major:
+    description: "Major version number"
+  minor:
+    description: "Minor version number"
+  patch:
+    description: "Patch version number"
+  prerelease:
+    description: "Prerelease identifier string (if any)"
+  dockerTags:
+    description: "JSON array of generated docker tags"
+
+runs:
+  using: node24
+  main: dist/index.js
