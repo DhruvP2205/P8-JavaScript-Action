@@ -1,118 +1,111 @@
-/**
- * Parses, validates, and extracts SemVer components and tags from an input.
- * 
- * @param {any} input - The version input to parse (must be text).
- * @param {Object} [options={}] - Configuration options.
- * @param {boolean} [options.allowPrefixV=true] - Whether a lowercase leading 'v' is allowed and removed.
- * @returns {Object} Result object matching test suite specifications.
- */
-export function parseVersion(input, options = {}) {
-  // 1. Reject anything that isn’t a string (non-string input is invalid and does not throw)
-  if (typeof input !== "string" && !(input instanceof String)) {
-    return {
-      valid: false,
-      version: "",
-      major: null,
-      minor: null,
-      patch: null,
-      prerelease: "",
-      dockerTags: [],
-      reason: "Input must be a string."
-    };
-  }
+// src/semver.js
+// Checks whether a text is a valid semantic version (https://semver.org)
+// and works out which Docker tags it should produce.
+//
+// Examples:
+//   parseVersion("1.2.3").dockerTags       -> ["1.2.3", "1.2", "1"]
+//   parseVersion("v1.0.0-rc.1").dockerTags -> ["1.0.0-rc.1"]
+//   parseVersion("1.2").valid              -> false
 
-  // 2. Surrounding whitespace is trimmed
-  let processed = String(input).trim();
+// A number written without leading zeros: "0", "7", "42" are fine, "01" is not.
+const NUMBER = /^(0|[1-9]\d*)$/;
 
-  // 3. Handle allowPrefixV option (default is true)
-  const allowPrefixV = options.allowPrefixV !== false;
+// One dot-separated piece of a prerelease, e.g. "rc", "1", "alpha-beta".
+// It is either a number without leading zeros, or text that contains at
+// least one letter or hyphen (so "01" is not allowed, but "01a" is).
+const PRERELEASE_PIECE = /^(0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)$/;
 
-  // Uppercase 'V' is NEVER accepted anywhere
-  if (processed.startsWith("V")) {
-    return {
-      valid: false,
-      version: "",
-      major: null,
-      minor: null,
-      patch: null,
-      prerelease: "",
-      dockerTags: [],
-      reason: "Uppercase 'V' prefix is not allowed."
-    };
-  }
+// One dot-separated piece of build metadata, e.g. "build", "5".
+const BUILD_PIECE = /^[0-9A-Za-z-]+$/;
 
-  // Check for lowercase 'v' prefix
-  const hasVPrefix = processed.startsWith("v");
-  if (hasVPrefix) {
-    if (!allowPrefixV) {
-      return {
-        valid: false,
-        version: "",
-        major: null,
-        minor: null,
-        patch: null,
-        prerelease: "",
-        dockerTags: [],
-        reason: "Leading 'v' prefix is not allowed when allowPrefixV is false."
-      };
-    }
-    // Remove the leading 'v' if allowed
-    processed = processed.slice(1);
-  }
-
-  // 4. Validate SemVer format, no leading zeros, optional prerelease and build metadata
-  // Segments: (0|[1-9]\d*)
-  const semverRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([\w.-]+))?$/;
-  const match = processed.match(semverRegex);
-
-  if (!match) {
-    return {
-      valid: false,
-      version: "",
-      major: null,
-      minor: null,
-      patch: null,
-      prerelease: "",
-      dockerTags: [],
-      reason: "Invalid version format, malformed identifiers, or leading zero detected."
-    };
-  }
-
-  // 5. Extract components
-  const majorNum = parseInt(match[1], 10);
-  const minorNum = parseInt(match[2], 10);
-  const patchNum = parseInt(match[3], 10);
-  const prerelease = match[4] || "";
-  const build = match[5] || "";
-
-  // The normalized version string without a leading "v" and without build metadata
-  const versionWithoutBuild = `${majorNum}.${minorNum}.${patchNum}${prerelease ? '-' + prerelease : ''}`;
-
-  // 6. Build dockerTags list
-  const dockerTags = [];
-  dockerTags.push(versionWithoutBuild);
-
-  // A stable release means there is no prerelease component
-  const isStable = !prerelease;
-
-  if (isStable) {
-    // Add major.minor
-    dockerTags.push(`${majorNum}.${minorNum}`);
-
-    // Add major-only ONLY if major > 0 (no bare 0 for 0.x versions)
-    if (majorNum > 0) {
-      dockerTags.push(`${majorNum}`);
-    }
-  }
-
+// The result we return when the version is not valid.
+function invalid(reason) {
   return {
-    valid: true,
-    version: versionWithoutBuild,
-    major: majorNum,
-    minor: minorNum,
-    patch: patchNum,
-    prerelease,
-    dockerTags,
-    reason: ""
+    valid: false,
+    version: "",
+    major: null,
+    minor: null,
+    patch: null,
+    prerelease: "",
+    dockerTags: [],
+    reason,
   };
 }
+
+function parseVersion(input, options = {}) {
+  // By default a leading "v" is allowed, unless the caller says otherwise.
+  const allowPrefixV = options.allowPrefixV !== false;
+
+  // Step 1: the input must be text.
+  if (typeof input !== "string") {
+    return invalid("The version must be text.");
+  }
+
+  // Step 2: remove spaces around it, and remove a leading lowercase "v".
+  let text = input.trim();
+  if (text.startsWith("v")) {
+    if (!allowPrefixV) {
+      return invalid("A leading 'v' is not allowed.");
+    }
+    text = text.slice(1);
+  }
+  if (text === "") {
+    return invalid("The version is empty.");
+  }
+
+  // Step 3: cut off build metadata (everything after the first "+").
+  // It is checked, but it never ends up in the result.
+  const plusIndex = text.indexOf("+");
+  if (plusIndex !== -1) {
+    const build = text.slice(plusIndex + 1);
+    text = text.slice(0, plusIndex);
+    if (!build.split(".").every((piece) => BUILD_PIECE.test(piece))) {
+      return invalid("The build metadata after '+' is not valid.");
+    }
+  }
+
+  // Step 4: cut off the prerelease (everything after the first "-").
+  // A prerelease can itself contain hyphens ("alpha-beta"), which is why
+  // we only cut at the FIRST hyphen.
+  let prerelease = "";
+  const dashIndex = text.indexOf("-");
+  if (dashIndex !== -1) {
+    prerelease = text.slice(dashIndex + 1);
+    text = text.slice(0, dashIndex);
+    if (!prerelease.split(".").every((piece) => PRERELEASE_PIECE.test(piece))) {
+      return invalid("The prerelease after '-' is not valid.");
+    }
+  }
+
+  // Step 5: what is left must be exactly MAJOR.MINOR.PATCH.
+  const parts = text.split(".");
+  if (parts.length !== 3 || !parts.every((part) => NUMBER.test(part))) {
+    return invalid(
+      "The version must look like MAJOR.MINOR.PATCH, for example 1.2.3 (no leading zeros)."
+    );
+  }
+  const [major, minor, patch] = parts.map(Number);
+  if (![major, minor, patch].every(Number.isSafeInteger)) {
+    return invalid("The version numbers are too large.");
+  }
+
+  // Step 6: build the normalized version and the Docker tags.
+  const version = prerelease
+    ? `${major}.${minor}.${patch}-${prerelease}`
+    : `${major}.${minor}.${patch}`;
+
+  let dockerTags;
+  if (prerelease) {
+    // A prerelease only gets its own tag, so it never moves "1" or "1.2".
+    dockerTags = [version];
+  } else if (major === 0) {
+    // 0.x versions make no stability promise, so no bare "0" tag.
+    dockerTags = [version, `${major}.${minor}`];
+  } else {
+    dockerTags = [version, `${major}.${minor}`, `${major}`];
+  }
+
+  return { valid: true, version, major, minor, patch, prerelease, dockerTags, reason: "" };
+}
+
+module.exports = { parseVersion };

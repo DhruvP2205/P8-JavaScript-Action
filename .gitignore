@@ -3,3 +3,4 @@ node_modules
 Reports/
 Reports/*
 .git
+out.txt

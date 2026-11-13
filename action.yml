@@ -5,15 +5,21 @@ branding:
   color: 'green'
 
 inputs:
-  docker-tag:
+  version:
     description: "Docker Tag Version (Ex., 1.2.3 , v1.2.3 , 1.0.0-rc.1)"
     required: true
 
-  semver-options:
-    description: "Options: { allowPrefixV } (default true)"
+  allow-prefix-v:
+    description: "If false, a leading v makes the version invalid"
+    default: "true"
+
+  fail-on-invalid:
+    description: "If true, an invalid version turns the step red. If false, the step passes and only the output says valid=false"
     default: "true"
 
 outputs:
+  valid:
+    description: "Version is valid or not"
   version:
     description: "Normalized version string without leading v and without build metadata"
   major:
@@ -24,8 +30,8 @@ outputs:
     description: "Patch version number"
   prerelease:
     description: "Prerelease identifier string (if any)"
-  dockerTags:
-    description: "JSON array of generated docker tags"
+  docker-tags:
+    description: "Docker tags"
 
 runs:
   using: node24
