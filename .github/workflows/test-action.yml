@@ -1,6 +1,7 @@
 name: "Test JS Action"
 
 on:
+    push:
     workflow_dispatch:
 
 jobs:
