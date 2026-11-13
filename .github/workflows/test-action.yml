@@ -18,7 +18,7 @@ jobs:
                       fail-on-invalid: "true"
                       expected-outcome: success
                       expected-valid: "true"
-                      expected-tags: "1.2.3,1.2,1"
+                      expected-tags: "1.2.3,1.2"
 
                     - name: v prefix allowed
                       input: "v1.2.3"
