@@ -1,0 +1,37 @@
+name: "Build and test the tool"
+
+on:
+    push:
+    workflow_dispatch:
+
+jobs:
+    build-and-test:
+        runs-on: ubuntu-24.04
+        steps:
+            - name: Code Checkout
+              uses: actions/checkout@v7
+            
+            - name: Setup NodeJS
+              uses: actions/setup-node@v7
+              with:
+                node-version: 24
+                cache: "npm"
+                cache-dependency-path: package-lock.json
+
+            - name: Install Dependency
+              run: npm ci
+
+            - name: Npm Test
+              id: npm-test
+              run: npm test
+
+            - name: NCC Builder
+              run: ncc build ./src/index.js -o dist
+
+            - name: "Check /dist changed or not"
+              run: |
+                if [ -n "$(git status --porcelain dist)" ]; then
+                    echo "dist is out of date, rebuild and commit it"
+                    git status --porcelain dist
+                    exit 1
+                fi
