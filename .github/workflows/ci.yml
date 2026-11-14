@@ -26,7 +26,7 @@ jobs:
               run: npm test
 
             - name: NCC Builder
-              run: ncc build ./src/index.js -o dist
+              run: npx ncc build ./src/index.js -o dist
 
             - name: "Check /dist changed or not"
               run: |
