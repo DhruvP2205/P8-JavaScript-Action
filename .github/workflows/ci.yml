@@ -22,23 +22,28 @@ jobs:
               run: npm ci
 
             - name: Npm Test
-              id: npm-test
               run: npm test
 
             - name: NCC Builder
               run: npx ncc build src/index.js -o dist
 
             - name: "Check /dist changed or not"
+              id: dist-check
+              continue-on-error: true
               run: |
                 if [ -n "$(git status --porcelain dist)" ]; then
                     echo "dist is out of date, rebuild and commit it"
                     git status --porcelain dist
-                    echo "--- versions"
-                    node -v
-                    npx ncc version
-                    echo "--- line endings (repo vs working file)"
-                    git ls-files --eol dist
-                    echo "--- first changed lines"
-                    git diff dist | head -40 | cat -A | cut -c1-120
                     exit 1
                 fi
+
+            - name: Upload Rebuild dist
+              if: steps.dist-check.outcome == 'failure'
+              uses: actions/upload-artifact@v7
+              with:
+                name: ncc-build
+                path: dist/
+
+            - name: Fail if dist was out of date
+              if: steps.dist-check.outcome == 'failure'
+              run: exit 1
