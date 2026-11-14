@@ -33,5 +33,6 @@ jobs:
                 if [ -n "$(git status --porcelain dist)" ]; then
                     echo "dist is out of date, rebuild and commit it"
                     git status --porcelain dist
+                    git diff --stat dist
                     exit 1
                 fi
