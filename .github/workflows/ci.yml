@@ -33,6 +33,12 @@ jobs:
                 if [ -n "$(git status --porcelain dist)" ]; then
                     echo "dist is out of date, rebuild and commit it"
                     git status --porcelain dist
-                    git diff --stat dist
+                    echo "--- versions"
+                    node -v
+                    npx ncc version
+                    echo "--- line endings (repo vs working file)"
+                    git ls-files --eol dist
+                    echo "--- first changed lines"
+                    git diff dist | head -40 | cat -A | cut -c1-120
                     exit 1
                 fi
